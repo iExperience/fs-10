@@ -110,7 +110,7 @@ ul {
   ```ts
 
 import { Component } from '@angular/core';
-import { AuthenticationService } from '../services/authentication.service';
+import { AuthenticationService } from '../services/auth.service';
 import { User } from '../models/user';
 
 @Component({
@@ -140,7 +140,7 @@ Ensure that your services/authentication.service.ts file looks like the section 
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { User } from '../models/user';
-0
+
 @Injectable({
   providedIn: 'root'
 })
@@ -156,36 +156,202 @@ export class AuthenticationService {
 
 }
 
+```
+
+### Update your api
+
+Install jsonwebtoken library / dependency to create and verify JWT tokens
+
+```bash
+
+npm install jsonwebtoken
 
 ```
 
+Create the following folders and files
 
+config/config.js
+middle/middleware.js
 
+In your config.js file add your jwt secret
+file: config/config.js
 
-### Create Table
+```js
 
-Run the following query to create a table called listing. The table has a primary key: id and fields userId, title, description, location and pricePerNight.
-
-```sql
-
-CREATE TABLE `fs_bnb`.`listing` (
-  `id` INT(6) UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `userId` INT(6) UNSIGNED NOT NULL,
-  `title` VARCHAR(45) NOT NULL,
-  `description` VARCHAR(45) NULL,
-  `location` VARCHAR(45) NULL,
-  `pricePerNight` DECIMAL(10) NOT NULL
-)
+module.exports = {
+    secret: 'whoknowsthesecret'
+};
 
 ```
 
-### Insert Data into Table
+In your middleware.js file create a middleware jwt function which checks a token before allowing access to certain routes / end points
+file: middleware/middleware.js
 
-Run the following query to insert data in the listing table. The insert query contains data for the fields userId, title, description, location and pricePerNight.
+```js
 
-```sql
+let jwt = require('jsonwebtoken');
+const config = require('../config/config');
 
-INSERT INTO fs_bnb.listing (userId, title, description, location, pricePerNight)
-VALUES (2, "Hout Bay Town House", "Town House", "Hout Bay", "120")
+let checkToken = (req, res, next) => {
+  let token = req.headers['x-access-token'] || req.headers['authorization']; // Express headers are auto converted to lowercase
+  if (token.startsWith('Bearer ')) {
+    // Remove Bearer from string
+    token = token.slice(7, token.length);
+  }
+
+  if (token) {
+    jwt.verify(token, config.secret, (err, decoded) => {
+      if (err) {
+        return res.json({
+          success: false,
+          message: 'Token is not valid'
+        });
+      } else {
+        req.decoded = decoded;
+        next();
+      }
+    });
+  } else {
+    return res.json({
+      success: false,
+      message: 'Auth token is not supplied'
+    });
+  }
+};
+
+module.exports = {
+  checkToken: checkToken
+}
+
+```
+
+In your services/auth-service.js file update your login function to create a JWT token when successfully finding a user in the database
+
+```js
+
+const UserService = require('./user-service');
+const User = require("../models/user");
+const userServer = new UserService();
+const jwt = require('jsonwebtoken');
+const config = require('../config/config');
+
+module.exports = class AuthService {
+    constructor() {}
+
+// with services we need asynchronous functions due to the nature of JavaScript runtime environment
+// Look at JavaScript concurrency model for more information
+
+login(userInput) {
+  // return promise (asynchronous function method)
+  // https://developers.google.com/web/fundamentals/primers/promises
+  return new Promise((resolve, reject) => {        
+    User.findUserByEmailAndPassword([userInput.email, userInput.password], (err, res) => {
+        if (err) {
+            reject(err);
+        }
+        else if (res.length > 0) { // database returns a user or an array larger than length 0
+
+            let token = jwt.sign({username: userInput.name},
+                config.secret,
+                { expiresIn: '24h' // expires in 24 hours
+                }
+              );
+              // return the JWT token for the future API calls
+              resolve({
+                success: true,
+                message: 'Authentication successful!',
+                token: token
+              });
+        }
+        else {
+            reject("user does not exist");
+        }
+    });
+});
+
+```
+
+Update your auth-routes file to return a JWT token in a structure which is more easily interpreted by the front-end / client
+file: routes/auth-routes.js
+
+```js
+
+...
+//login
+router.post('/login', (req,res) => {
+    // asynchronous function call structure 
+    authServe.login(req.body).then(token => {
+        res.json(token);
+    }).catch(err => {
+        res.json({
+            success: false,
+            message: err});
+    });
+});
+
+```
+
+Add your middleware JWT token verification to your index.js file
+
+```js
+
+...
+const middleware = require('./src/middleware/middleware');
+
+....
+
+//update to following app routes to
+//App routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", middleware.checkToken, userRoutes);
+
+```
+
+To register users successfully using the JWT token as a response, update your register function in the services/auth-service.js file 
+
+```js
+
+...
+register(user) {
+    let userName = user.name;
+    // return promise (asynchronous function method)
+    // https://developers.google.com/web/fundamentals/primers/promises
+    return new Promise((resolve, reject) => { 
+        userServer.createUser(user).then(userReturned => {
+            let token = jwt.sign({username: userName},
+                config.secret,
+                { expiresIn: '24h' // expires in 24 hours
+                }
+              );
+              // return the JWT token for the future API calls
+              resolve({
+                success: true,
+                message: 'Authentication successful!',
+                token: token
+              });
+        }).catch(err => {
+            reject(err); // reject error in promise
+        });
+    });
+}
+
+```
+
+Update the routes/auth-routes.js file to a structure which is more easily interpreted by the front-end / client
+
+```js
+
+...
+//register
+router.post('/register', (req,res) => {
+    // asynchronous function call structure 
+    authServe.register(req.body).then(user => {
+        res.json(user);
+    }).catch(err => {
+        res.json({
+            success: false,
+            message: err});
+    });
+});
 
 ```

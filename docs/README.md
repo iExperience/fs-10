@@ -99,7 +99,7 @@ login(userInput) {
         }
         else if (res.length > 0) { // database returns a user or an array larger than length 0
 
-            let token = jwt.sign({username: userInput.name},
+            let token = jwt.sign({email: userInput.email},
                 config.secret,
                 { expiresIn: '24h' // expires in 24 hours
                 }
@@ -161,12 +161,12 @@ To register users successfully using the JWT token as a response, update your re
 
 ...
 register(user) {
-    let userName = user.name;
+    let email = user.email;
     // return promise (asynchronous function method)
     // https://developers.google.com/web/fundamentals/primers/promises
     return new Promise((resolve, reject) => { 
         userServer.createUser(user).then(userReturned => {
-            let token = jwt.sign({username: userName},
+            let token = jwt.sign({email: email},
                 config.secret,
                 { expiresIn: '24h' // expires in 24 hours
                 }

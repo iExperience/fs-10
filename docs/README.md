@@ -241,7 +241,7 @@ import { HttpClientModule } from '@angular/common/http';
 
 In home.page.html replace the view with the following html code
 
-```ts
+```html
 
 <ion-header>
   <ion-toolbar>
@@ -396,12 +396,108 @@ export class ListingService {
     };
   }
 
-  getListings() {
-    this.http.get('http://localhost:5000/api/listings', this.httpOptions).subscribe((response) => {
-      console.log(response);
-    });
+  getListings(): any {
+    return this.http.get('http://localhost:5000/api/listings', this.httpOptions);
   }
 
 }
+
+```
+
+listing.page.ts
+
+```ts
+
+import { Component, OnInit } from '@angular/core';
+import { ListingService } from '../services/listing.service';
+import { Listing } from '../models/listing';
+
+@Component({
+  selector: 'app-listings',
+  templateUrl: './listings.page.html',
+  styleUrls: ['./listings.page.scss'],
+})
+export class ListingsPage implements OnInit {
+
+  listings: Listing[];
+
+  constructor(private listingService: ListingService) { }
+
+  ngOnInit() {
+    this.listingService.getListings().subscribe((response: Listing[]) => {
+      this.listings = response;
+    });;
+  }
+
+}
+
+```
+
+listing.page.html
+
+```html
+
+<ion-header>
+  <ion-toolbar>
+    <ion-title>
+      Explore
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div>
+    <ion-card *ngFor="let listing of listings">
+      <img src="{{listing.imgUrl}}" />
+      <ion-card-header>
+        <ion-grid>
+          <ion-row>
+            <ion-col push-md align-self: center>
+              <ion-card-subtitle>{{listing.location}}</ion-card-subtitle>
+              <ion-card-title>{{listing.name}}</ion-card-title>
+            </ion-col>
+            <ion-col align-self: center>
+              <ion-card-title>R{{listing.price}}/night</ion-card-title>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
+
+      </ion-card-header>
+      <ion-card-content>
+        Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's
+        standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make
+        a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting,
+        remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing
+        Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions
+        of Lorem Ipsum.
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>
+
+```
+
+```css
+
+.welcome-card ion-img {
+    max-height: 35vh;
+    overflow: hidden;
+  }
+  
+  
+  .center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%;
+  }
+  
+  .blackText {
+    color: black;
+  }
+  
+  ion-col {
+    text-align: center;
+  }
 
 ```
